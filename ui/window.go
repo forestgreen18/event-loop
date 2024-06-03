@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -44,6 +43,8 @@ func (pw *Visualizer) Update(t screen.Texture) {
 func (pw *Visualizer) run(s screen.Screen) {
 	w, err := s.NewWindow(&screen.NewWindowOptions{
 		Title: pw.Title,
+		Height: 800,
+		Width: 800,
 	})
 	if err != nil {
 		log.Fatal("Failed to initialize the app window:", err)
@@ -117,31 +118,28 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 		}
 		pw.w.Publish()
 	case mouse.Event:
-		if e.Button == mouse.ButtonLeft { // Check if the left mouse button was clicked.
-			pw.pos = image.Rect(
-				int(e.X)-100, int(e.Y)-100,
-				int(e.X)+100, int(e.Y)+100,
-			)
-			pw.drawShape(pw.w, pw.pos)
-			pw.w.Publish()
-		}
+		if e.Button == mouse.ButtonLeft {
+		pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
+
+		pw.pos = image.Rect(
+			int(e.X)-100, int(e.Y)-100,
+			int(e.X)+100, int(e.Y)+100,
+		)
+		pw.drawShape(pw.w, pw.pos)
+		pw.w.Publish()
+	}
 
 
-	// ... other cases ...
 	}
 }
 func (pw *Visualizer) drawDefaultUI() {
 
-	log.Println("Setting background color to green") // Debug log
 	pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
-	fmt.Println(pw.sz.Bounds())
-
-	log.Println("Background color set") // Debug log
 
 
-	// Draw the initial shape at the center of the window.
+
 	pw.pos = image.Rect(
-		pw.sz.WidthPx/2-100, pw.sz.HeightPx/2-100, // Center the shape.
+		pw.sz.WidthPx/2-100, pw.sz.HeightPx/2-100,
 		pw.sz.WidthPx/2+100, pw.sz.HeightPx/2+100,
 	)
 	pw.drawShape(pw.w, pw.pos)
@@ -149,16 +147,13 @@ func (pw *Visualizer) drawDefaultUI() {
 
 
 func (pw *Visualizer) drawShape(w screen.Window, pos image.Rectangle) {
-	// Draw the shape specified in your variant.
-	// For example, if the shape is a "T":
-	// Draw the horizontal part of the "T".
+
 	w.Fill(image.Rect(
-		pos.Min.X, pos.Min.Y+80, // Position the horizontal part.
+		pos.Min.X, pos.Min.Y+80,
 		pos.Max.X, pos.Min.Y+120,
 	), color.White, draw.Src)
-	// Draw the vertical part of the "T".
 	w.Fill(image.Rect(
-		pos.Min.X+80, pos.Min.Y, // Position the vertical part.
+		pos.Min.X+80, pos.Min.Y,
 		pos.Min.X+120, pos.Max.Y,
 	), color.White, draw.Src)
 }
