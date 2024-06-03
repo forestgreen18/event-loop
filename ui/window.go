@@ -1,12 +1,12 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
 
 	"golang.org/x/exp/shiny/driver"
-	"golang.org/x/exp/shiny/imageutil"
 	"golang.org/x/exp/shiny/screen"
 	"golang.org/x/image/draw"
 	"golang.org/x/mobile/event/key"
@@ -106,37 +106,59 @@ func detectTerminate(e any) bool {
 
 func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 	switch e := e.(type) {
+	// ... other cases ...
 
-	case size.Event: // Оновлення даних про розмір вікна.
+	case size.Event:
 		pw.sz = e
-
-	case error:
-		log.Printf("ERROR: %s", e)
-
-	case mouse.Event:
-		if t == nil {
-			// TODO: Реалізувати реакцію на натискання кнопки миші.
-		}
-
 	case paint.Event:
-		// Малювання контенту вікна.
-		if t == nil {
-			pw.drawDefaultUI()
-		} else {
-			// Використання текстури отриманої через виклик Update.
+		pw.drawDefaultUI()
+		if t != nil {
 			pw.w.Scale(pw.sz.Bounds(), t, t.Bounds(), draw.Src, nil)
 		}
 		pw.w.Publish()
+	case mouse.Event:
+		if e.Button == mouse.ButtonLeft { // Check if the left mouse button was clicked.
+			pw.pos = image.Rect(
+				int(e.X)-100, int(e.Y)-100,
+				int(e.X)+100, int(e.Y)+100,
+			)
+			pw.drawShape(pw.w, pw.pos)
+			pw.w.Publish()
+		}
+
+
+	// ... other cases ...
 	}
 }
-
 func (pw *Visualizer) drawDefaultUI() {
-	pw.w.Fill(pw.sz.Bounds(), color.Black, draw.Src) // Фон.
 
-	// TODO: Змінити колір фону та додати відображення фігури у вашому варіанті.
+	log.Println("Setting background color to green") // Debug log
+	pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
+	fmt.Println(pw.sz.Bounds())
 
-	// Малювання білої рамки.
-	for _, br := range imageutil.Border(pw.sz.Bounds(), 10) {
-		pw.w.Fill(br, color.White, draw.Src)
-	}
+	log.Println("Background color set") // Debug log
+
+
+	// Draw the initial shape at the center of the window.
+	pw.pos = image.Rect(
+		pw.sz.WidthPx/2-100, pw.sz.HeightPx/2-100, // Center the shape.
+		pw.sz.WidthPx/2+100, pw.sz.HeightPx/2+100,
+	)
+	pw.drawShape(pw.w, pw.pos)
+}
+
+
+func (pw *Visualizer) drawShape(w screen.Window, pos image.Rectangle) {
+	// Draw the shape specified in your variant.
+	// For example, if the shape is a "T":
+	// Draw the horizontal part of the "T".
+	w.Fill(image.Rect(
+		pos.Min.X, pos.Min.Y+80, // Position the horizontal part.
+		pos.Max.X, pos.Min.Y+120,
+	), color.White, draw.Src)
+	// Draw the vertical part of the "T".
+	w.Fill(image.Rect(
+		pos.Min.X+80, pos.Min.Y, // Position the vertical part.
+		pos.Min.X+120, pos.Max.Y,
+	), color.White, draw.Src)
 }
