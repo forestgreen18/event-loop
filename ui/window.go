@@ -31,8 +31,11 @@ type Visualizer struct {
 func (pw *Visualizer) Main() {
 	pw.tx = make(chan screen.Texture)
 	pw.done = make(chan struct{})
+
 	pw.pos.Max.X = 200
 	pw.pos.Max.Y = 200
+	pw.pos = image.Rect(300, 300, 500, 500) // Center the shape
+
 	driver.Main(pw.run)
 }
 
@@ -112,22 +115,18 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 	case size.Event:
 		pw.sz = e
 	case paint.Event:
-		pw.drawDefaultUI()
-		if t != nil {
-			pw.w.Scale(pw.sz.Bounds(), t, t.Bounds(), draw.Src, nil)
-		}
-		pw.w.Publish()
-	case mouse.Event:
-		if e.Button == mouse.ButtonLeft {
 		pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
 
-		pw.pos = image.Rect(
-			int(e.X)-100, int(e.Y)-100,
-			int(e.X)+100, int(e.Y)+100,
-		)
 		pw.drawShape(pw.w, pw.pos)
 		pw.w.Publish()
-	}
+	case mouse.Event:
+		if e.Button == mouse.ButtonRight {
+			pw.pos = image.Rect(
+				int(e.X)-100, int(e.Y)-100,
+				int(e.X)+100, int(e.Y)+100,
+			)
+			pw.w.Send(paint.Event{})
+		}
 
 
 	}
