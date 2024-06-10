@@ -3,6 +3,7 @@ package lang
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"image/color"
 	"io"
 	"strconv"
@@ -32,6 +33,8 @@ func (cp *CommandProcessor) ProcessCommands(input io.Reader) ([]painter.TextureO
 
 		for _, cmd := range commands {
 			cmdParts := strings.Fields(cmd)
+			fmt.Println("cmd", cmd)
+
 
 			switch cmdParts[0] {
 			case "white":

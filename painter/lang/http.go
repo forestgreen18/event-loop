@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -17,6 +18,10 @@ func CommandHttpHandler(loop *painter.EventLoop, cp *CommandProcessor) http.Hand
 		if r.Method == http.MethodGet {
 			input = strings.NewReader(r.URL.Query().Get("cmd"))
 		}
+
+		fmt.Println("http request:", r)
+
+		fmt.Println("r.Body:", r.Body)
 
 		operations, err := cp.ProcessCommands(input)
 		if err != nil {

@@ -39,7 +39,8 @@ func (pw *Visualizer) Main() {
 	driver.Main(pw.run)
 }
 
-func (pw *Visualizer) Update(t screen.Texture) {
+func (pw *Visualizer) UpdateTexture(t screen.Texture) {
+
 	pw.tx <- t
 }
 
@@ -115,10 +116,15 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 	case size.Event:
 		pw.sz = e
 	case paint.Event:
-		pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
+		if t != nil {
+			// Use the texture received from the update.
+			pw.w.Copy(pw.sz.Bounds().Min, t, t.Bounds(), draw.Src, nil)
+		} else {
+			// If there is no texture, draw the default UI.
+			pw.drawDefaultUI()
+		}
+		pw.w.Publish() // Publish the window contents to the screen.
 
-		pw.drawShape(pw.w, pw.pos)
-		pw.w.Publish()
 	case mouse.Event:
 		if e.Button == mouse.ButtonRight {
 			pw.pos = image.Rect(
