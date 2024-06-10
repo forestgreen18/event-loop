@@ -2,59 +2,104 @@ package painter
 
 import (
 	"image"
+	"sync"
 
 	"golang.org/x/exp/shiny/screen"
 )
 
-// Receiver отримує текстуру, яка була підготовлена в результаті виконання команд у циклі подій.
-type Receiver interface {
-	Update(t screen.Texture)
+// TextureReceiver receives a texture that has been prepared as a result of executing operations in the event loop.
+type TextureReceiver interface {
+	UpdateTexture(t screen.Texture)
 }
 
-// Loop реалізує цикл подій для формування текстури отриманої через виконання операцій отриманих з внутрішньої черги.
-type Loop struct {
-	Receiver Receiver
+// EventLoop manages an event loop for creating textures through executing operations from an internal queue.
+type EventLoop struct {
+	Receiver TextureReceiver
 
-	next screen.Texture // текстура, яка зараз формується
-	prev screen.Texture // текстура, яка була відправлення останнього разу у Receiver
+	currentTexture screen.Texture // Texture currently being formed
+	lastTexture    screen.Texture // Texture last sent to the Receiver
 
-	mq messageQueue
+	opQueue operationQueue
 
-	stop    chan struct{}
-	stopReq bool
+	stopCh  chan struct{}
+	requestStop bool
 }
 
-var size = image.Pt(400, 400)
+var canvasSize = image.Pt(800, 800)
 
-// Start запускає цикл подій. Цей метод потрібно запустити до того, як викликати на ньому будь-які інші методи.
-func (l *Loop) Start(s screen.Screen) {
-	l.next, _ = s.NewTexture(size)
-	l.prev, _ = s.NewTexture(size)
+// Initiate starts the event loop. This method should be called before any other methods on it.
+func (el *EventLoop) Initiate(screenProvider screen.Screen) {
+	el.currentTexture, _ = screenProvider.NewTexture(canvasSize)
+	el.lastTexture, _ = screenProvider.NewTexture(canvasSize)
 
-	// TODO: стартувати цикл подій.
+	el.stopCh = make(chan struct{})
+
+	go func() {
+		for !el.requestStop || !el.opQueue.isEmpty() {
+			op := el.opQueue.dequeue()
+			ready := op.Apply(el.currentTexture)
+
+			if ready {
+				el.Receiver.UpdateTexture(el.currentTexture)
+				el.currentTexture, el.lastTexture = el.lastTexture, el.currentTexture
+			}
+		}
+		close(el.stopCh)
+	}()
 }
 
-// Post додає нову операцію у внутрішню чергу.
-func (l *Loop) Post(op Operation) {
-	if update := op.Do(l.next); update {
-		l.Receiver.Update(l.next)
-		l.next, l.prev = l.prev, l.next
+// Enqueue adds a new operation to the internal queue.
+func (el *EventLoop) Enqueue(op TextureOperation) {
+	el.opQueue.enqueue(op)
+}
+
+// Terminate signals the event loop to stop and waits for it to finish.
+func (el *EventLoop) Terminate() {
+	el.Enqueue(TextureFunc(func(t screen.Texture) {
+		el.requestStop = true
+	}))
+	<-el.stopCh
+}
+
+// operationQueue is a custom message queue for texture operations.
+type operationQueue struct {
+	operations []TextureOperation
+	mutex      sync.Mutex
+	waitCh     chan struct{}
+}
+
+func (oq *operationQueue) enqueue(op TextureOperation) {
+	oq.mutex.Lock()
+	defer oq.mutex.Unlock()
+
+	oq.operations = append(oq.operations, op)
+
+	if oq.waitCh != nil {
+		close(oq.waitCh)
+		oq.waitCh = nil
 	}
 }
 
-// StopAndWait сигналізує про необхідність завершити цикл та блокується до моменту його повної зупинки.
-func (l *Loop) StopAndWait() {
+func (oq *operationQueue) dequeue() TextureOperation {
+	oq.mutex.Lock()
+	defer oq.mutex.Unlock()
+
+	for len(oq.operations) == 0 {
+		oq.waitCh = make(chan struct{})
+		oq.mutex.Unlock()
+		<-oq.waitCh
+		oq.mutex.Lock()
+	}
+
+	op := oq.operations[0]
+	oq.operations[0] = nil
+	oq.operations = oq.operations[1:]
+	return op
 }
 
-// TODO: Реалізувати чергу подій.
-type messageQueue struct{}
+func (oq *operationQueue) isEmpty() bool {
+	oq.mutex.Lock()
+	defer oq.mutex.Unlock()
 
-func (mq *messageQueue) push(op Operation) {}
-
-func (mq *messageQueue) pull() Operation {
-	return nil
-}
-
-func (mq *messageQueue) empty() bool {
-	return false
+	return len(oq.operations) == 0
 }
