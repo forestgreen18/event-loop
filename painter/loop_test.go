@@ -5,40 +5,41 @@ import (
 	"image/color"
 	"image/draw"
 	"testing"
+	"time"
 
 	"golang.org/x/exp/shiny/screen"
 )
 
-func TestLoop_Start(t *testing.T) {
+func TestEventLoop_Initiate(t *testing.T) {
 	s := &mockScreen{}
-	l := &Loop{
-		Receiver: &testReceiver{},
+	el := &EventLoop{
+		Receiver: &testTextureReceiver{},
 	}
-	l.Start(s)
+	el.Initiate(s)
 
-	if l.next == nil || l.prev == nil {
+	if el.currentTexture == nil || el.lastTexture == nil {
 		t.Error("unexpected nil texture")
 	}
 
-	l.StopAndWait()
+	el.Terminate()
 }
 
-func TestLoop_Post(t *testing.T) {
+func TestEventLoop_Enqueue(t *testing.T) {
 	var (
-		l  Loop
-		tr testReceiver
+		el EventLoop
+		tr testTextureReceiver
 	)
 
-	l.Receiver = &tr
+	el.Receiver = &tr
 
-	l.Start(mockScreen{})
-	l.Post(FillTexture(color.White))
-	l.Post(FillTexture(color.RGBA{R: 85, G: 217, B: 104}))
-	l.Post(MarkUpdated)
+	el.Initiate(mockScreen{})
+	el.Enqueue(FillTexture(color.White))
+	el.Enqueue(FillTexture(color.RGBA{R: 85, G: 217, B: 104}))
+	el.Enqueue(MarkUpdated)
 	if tr.LastTexture != nil {
 		t.Fatal("Receiver got the texture too early")
 	}
-	l.StopAndWait()
+	el.Terminate()
 
 	tx, ok := tr.LastTexture.(*mockTexture)
 	if !ok {
@@ -49,67 +50,67 @@ func TestLoop_Post(t *testing.T) {
 	}
 }
 
-func TestMessageQueue_push_pull_empty(t *testing.T) {
-	mq := &messageQueue{}
+func TestOperationQueue_enqueue_dequeue_isEmpty(t *testing.T) {
+	oq := &operationQueue{}
 	op := &testTextureOperation{}
 
-	mq.push(op)
+	oq.enqueue(op)
 
-	if len(mq.ops) != 1 || mq.ops[0] != op {
-		t.Error("failed to push operation into queue")
+	if len(oq.operations) != 1 || oq.operations[0] != op {
+		t.Error("failed to enqueue operation into queue")
 	}
 
-	pulledOp := mq.pull()
-	if pulledOp != op {
-		t.Error("failed to pull operation from queue")
+	dequeuedOp := oq.dequeue()
+	if dequeuedOp != op {
+		t.Error("failed to dequeue operation from queue")
 	}
 
-	if !mq.empty() {
+	if !oq.isEmpty() {
 		t.Error("expected queue to be empty")
 	}
 }
 
-func TestMessageQueue_push_blocked(t *testing.T) {
-	mq := &messageQueue{}
+func TestOperationQueue_enqueue_blocked(t *testing.T) {
+	oq := &operationQueue{}
 
 	for i := 0; i < 10; i++ {
-		mq.push(&testTextureOperation{})
+		oq.enqueue(&testTextureOperation{})
 	}
 
 	op := &testTextureOperation{}
 
-	// Push operation and ensure that it's blocked
-	mq.push(op)
+	// Enqueue operation and ensure that it's blocked
+	oq.enqueue(op)
 
-	if len(mq.ops) != 11 {
-		t.Error("failed to push operation into queue")
+	if len(oq.operations) != 11 {
+		t.Error("failed to enqueue operation into queue")
 	}
 
-	if mq.blocked != nil {
-		t.Error("expected message queue to be blocked")
+	if oq.waitCh != nil {
+		t.Error("expected operation queue to be blocked")
 	}
 
 	// Remove operation from queue and ensure that it's unblocked
-	mq.pull()
+	oq.dequeue()
 
-	if len(mq.ops) != 10 {
-		t.Error("failed to pull operation from queue")
+	if len(oq.operations) != 10 {
+		t.Error("failed to dequeue operation from queue")
 	}
 
-	if mq.blocked != nil {
-		t.Error("expected message queue to be unblocked")
+	if oq.waitCh != nil {
+		t.Error("expected operation queue to be unblocked")
 	}
 
-	if mq.empty() {
+	if oq.isEmpty() {
 		t.Error("expected queue to not be empty")
 	}
 }
 
-type testReceiver struct {
+type testTextureReceiver struct {
 	LastTexture screen.Texture
 }
 
-func (tr *testReceiver) Update(t screen.Texture) {
+func (tr *testTextureReceiver) UpdateTexture(t screen.Texture) {
 	tr.LastTexture = t
 }
 
@@ -142,10 +143,10 @@ type mockTexture struct {
 
 func (m *mockTexture) Release() {}
 
-func (m *mockTexture) Size() image.Point { return size }
+func (m *mockTexture) Size() image.Point { return canvasSize }
 
 func (m *mockTexture) Bounds() image.Rectangle {
-	return image.Rectangle{Max: size}
+	return image.Rectangle{Max: canvasSize}
 }
 
 func (m *mockTexture) Upload(image.Point, screen.Buffer, image.Rectangle) {
@@ -154,4 +155,76 @@ func (m *mockTexture) Upload(image.Point, screen.Buffer, image.Rectangle) {
 
 func (m *mockTexture) Fill(image.Rectangle, color.Color, draw.Op) {
 	m.FillCnt++
+}
+
+
+func TestEventLoop_NewTexturesCreated(t *testing.T) {
+	s := &mockScreen{}
+	el := &EventLoop{
+		Receiver: &testTextureReceiver{},
+	}
+
+	el.Initiate(s)
+	defer el.Terminate()
+
+	if el.currentTexture == nil || el.lastTexture == nil {
+		t.Error("EventLoop did not create new textures on initiation")
+	}
+}
+
+func TestEventLoop_TextureUpdate(t *testing.T) {
+	s := &mockScreen{}
+	el := &EventLoop{
+		Receiver: &testTextureReceiver{},
+	}
+
+	el.Initiate(s)
+	defer el.Terminate()
+
+	// Enqueue a texture operation that marks the texture as updated
+	el.Enqueue(MarkUpdated)
+
+	// Allow some time for the operation to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	if el.Receiver.(*testTextureReceiver).LastTexture == nil {
+		t.Error("Texture was not updated after enqueueing MarkUpdated operation")
+	}
+}
+
+func TestOperationQueue_OrderPreserved(t *testing.T) {
+	oq := &operationQueue{}
+	op1 := &testTextureOperation{}
+	op2 := &testTextureOperation{}
+
+	oq.enqueue(op1)
+	oq.enqueue(op2)
+
+	if oq.dequeue() != op1 || oq.dequeue() != op2 {
+		t.Error("Operation queue did not preserve the order of operations")
+	}
+}
+
+func TestOperationQueue_EmptyAfterDequeue(t *testing.T) {
+	oq := &operationQueue{}
+	op := &testTextureOperation{}
+
+	oq.enqueue(op)
+	oq.dequeue()
+
+	if !oq.isEmpty() {
+		t.Error("Operation queue was not empty after dequeueing the last operation")
+	}
+}
+
+func TestMockTexture_FillCalled(t *testing.T) {
+	mt := &mockTexture{}
+	rect := image.Rect(0, 0, 100, 100)
+	fillColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+
+	mt.Fill(rect, fillColor, draw.Src)
+
+	if mt.FillCnt != 1 {
+		t.Errorf("Fill was not called on the mock texture")
+	}
 }
