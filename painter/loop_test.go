@@ -228,3 +228,32 @@ func TestMockTexture_FillCalled(t *testing.T) {
 		t.Errorf("Fill was not called on the mock texture")
 	}
 }
+
+
+
+func TestEventLoop_StopChClosed(t *testing.T) {
+  s := &mockScreen{}
+  el := &EventLoop{
+    Receiver: &testTextureReceiver{},
+  }
+  el.Initiate(s)
+  defer el.Terminate()
+
+  // Before calling Terminate, stopCh should not be closed
+  select {
+  case <-el.stopCh:
+    t.Fatal("stopCh should not be closed before Terminate is called")
+  default:
+    // Expected case, do nothing
+  }
+
+  el.Terminate()
+
+  // After calling Terminate, stopCh should be closed
+  select {
+  case <-el.stopCh:
+    // Expected case, do nothing
+  default:
+    t.Fatal("stopCh should be closed after Terminate is called")
+  }
+}
