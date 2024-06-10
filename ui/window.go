@@ -26,6 +26,7 @@ type Visualizer struct {
 
 	sz  size.Event
 	pos image.Rectangle
+	mousePos image.Point
 }
 
 func (pw *Visualizer) Main() {
@@ -35,7 +36,7 @@ func (pw *Visualizer) Main() {
 	pw.pos.Max.X = 200
 	pw.pos.Max.Y = 200
 	pw.pos = image.Rect(300, 300, 500, 500) // Center the shape
-
+	pw.mousePos = image.Point{400, 400}
 	driver.Main(pw.run)
 }
 
@@ -127,10 +128,9 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 
 	case mouse.Event:
 		if e.Button == mouse.ButtonRight {
-			pw.pos = image.Rect(
-				int(e.X)-100, int(e.Y)-100,
-				int(e.X)+100, int(e.Y)+100,
-			)
+			pw.mousePos = image.Point{
+				X: int(e.X),
+				Y: int(e.Y),}
 			pw.w.Send(paint.Event{})
 		}
 
@@ -139,13 +139,15 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 }
 func (pw *Visualizer) drawDefaultUI() {
 
-	pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
+
+	x, y := pw.mousePos.X, pw.mousePos.Y
 
 
+	pw.w.Fill(pw.sz.Bounds(), color.RGBA{G: 255, A: 255}, draw.Src)
 
 	pw.pos = image.Rect(
-		pw.sz.WidthPx/2-100, pw.sz.HeightPx/2-100,
-		pw.sz.WidthPx/2+100, pw.sz.HeightPx/2+100,
+		x-100, y-100,
+		x+100, y+100,
 	)
 	pw.drawShape(pw.w, pw.pos)
 }
@@ -153,12 +155,14 @@ func (pw *Visualizer) drawDefaultUI() {
 
 func (pw *Visualizer) drawShape(w screen.Window, pos image.Rectangle) {
 
+
+
 	w.Fill(image.Rect(
 		pos.Min.X, pos.Min.Y+80,
 		pos.Max.X, pos.Min.Y+120,
-	), color.White, draw.Src)
+	),  color.RGBA{B: 255, A: 255}, draw.Src)
 	w.Fill(image.Rect(
 		pos.Min.X+80, pos.Min.Y,
 		pos.Min.X+120, pos.Max.Y,
-	), color.White, draw.Src)
+	), color.RGBA{B: 255, A: 255}, draw.Src)
 }
