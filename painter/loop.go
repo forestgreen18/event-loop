@@ -7,100 +7,99 @@ import (
 	"golang.org/x/exp/shiny/screen"
 )
 
-// Receiver отримує текстуру, яка була підготовлена в результаті виконання команд у циелі подій.
-type Receiver interface {
-	Update(t screen.Texture)
+// TextureReceiver receives a texture that has been prepared as a result of executing operations in the event loop.
+type TextureReceiver interface {
+	UpdateTexture(t screen.Texture)
 }
 
-// Loop реалізує цикл подій для формування текстури отриманої через виконання операцій отриманих з внутрішньої черги.
-type Loop struct {
-	Receiver Receiver
+// EventLoop manages an event loop for creating textures through executing operations from an internal queue.
+type EventLoop struct {
+	Receiver TextureReceiver
 
-	next screen.Texture // текстура, яка зараз формується
-	prev screen.Texture // текстура, яка була відправленя останнього разу у Receiver
+	currentTexture screen.Texture // Texture currently being formed
+	lastTexture    screen.Texture // Texture last sent to the Receiver
 
-	mq messageQueue
+	opQueue operationQueue
 
-	stopped chan struct{}
-	stopReq bool
+	stopCh  chan struct{}
+	requestStop bool
 }
 
-var size = image.Pt(800, 800)
+var canvasSize = image.Pt(800, 800)
 
-// Start запускає цикл подій. Цей метод потрібно запустити до того, як викликати на ньому будь-які інші методи.
-func (l *Loop) Start(s screen.Screen) {
-	l.next, _ = s.NewTexture(size)
-	l.prev, _ = s.NewTexture(size)
+// Initiate starts the event loop. This method should be called before any other methods on it.
+func (el *EventLoop) Initiate(screenProvider screen.Screen) {
+	el.currentTexture, _ = screenProvider.NewTexture(canvasSize)
+	el.lastTexture, _ = screenProvider.NewTexture(canvasSize)
 
-	l.stopped = make(chan struct{})
+	el.stopCh = make(chan struct{})
 
 	go func() {
-		for !l.stopReq || !l.mq.empty() {
-			op := l.mq.pull()
-			update := op.Apply(l.next)
+		for !el.requestStop || !el.opQueue.isEmpty() {
+			op := el.opQueue.dequeue()
+			ready := op.Apply(el.currentTexture)
 
-			if update {
-				l.Receiver.Update(l.next)
-				l.next, l.prev = l.prev, l.next
+			if ready {
+				el.Receiver.UpdateTexture(el.currentTexture)
+				el.currentTexture, el.lastTexture = el.lastTexture, el.currentTexture
 			}
 		}
-		close(l.stopped)
+		close(el.stopCh)
 	}()
-
 }
 
-// Post додає нову операцію у внутрішню чергу.
-func (l *Loop) Post(op TextureOperation) {
-	l.mq.push(op)
+// Enqueue adds a new operation to the internal queue.
+func (el *EventLoop) Enqueue(op TextureOperation) {
+	el.opQueue.enqueue(op)
 }
 
-// StopAndWait сигналізує
-func (l *Loop) StopAndWait() {
-	l.Post(TextureFunc(func(t screen.Texture) {
-		l.stopReq = true
+// Terminate signals the event loop to stop and waits for it to finish.
+func (el *EventLoop) Terminate() {
+	el.Enqueue(TextureFunc(func(t screen.Texture) {
+		el.requestStop = true
 	}))
-	<-l.stopped
+	<-el.stopCh
 }
 
-// TODO: реалізувати власну чергу повідомлень.
-type messageQueue struct {
-	ops []TextureOperation
-	mu sync.Mutex
-	blocked chan struct{}
+// operationQueue is a custom message queue for texture operations.
+type operationQueue struct {
+	operations []TextureOperation
+	mutex      sync.Mutex
+	waitCh     chan struct{}
 }
 
-func (mq *messageQueue) push(op TextureOperation) {
-	mq.mu.Lock()
-	defer mq.mu.Unlock()
+func (oq *operationQueue) enqueue(op TextureOperation) {
+	oq.mutex.Lock()
+	defer oq.mutex.Unlock()
 
-	mq.ops = append(mq.ops, op)
+	oq.operations = append(oq.operations, op)
 
-	if mq.blocked != nil {
-		close(mq.blocked)
-		mq.blocked = nil
+	if oq.waitCh != nil {
+		close(oq.waitCh)
+		oq.waitCh = nil
 	}
 }
 
-func (mq *messageQueue) pull() TextureOperation {
-	mq.mu.Lock()
-	defer mq.mu.Unlock()
+func (oq *operationQueue) dequeue() TextureOperation {
+	oq.mutex.Lock()
+	defer oq.mutex.Unlock()
 
-	for len(mq.ops) == 0 {
-		mq.blocked = make(chan struct{})
-		mq.mu.Unlock()
-		<-mq.blocked
-		mq.mu.Lock()
+	for len(oq.operations) == 0 {
+		oq.waitCh = make(chan struct{})
+		oq.mutex.Unlock()
+		<-oq.waitCh
+		oq.mutex.Lock()
 	}
 
-	op := mq.ops[0]
-	mq.ops[0] = nil
-	mq.ops = mq.ops[1:]
+	op := oq.operations[0]
+	oq.operations[0] = nil
+	oq.operations = oq.operations[1:]
 	return op
 }
 
-func (mq *messageQueue) empty() bool {
-	mq.mu.Lock()
-	defer mq.mu.Unlock()
+func (oq *operationQueue) isEmpty() bool {
+	oq.mutex.Lock()
+	defer oq.mutex.Unlock()
 
-	return len(mq.ops) == 0
+	return len(oq.operations) == 0
 }
