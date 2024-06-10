@@ -19,7 +19,7 @@ jobs:
         go-version: '1.22'
 
     - name: Build cmd/painter
-      run: go build -v ./cmd/painter
+      run: go build -v -o ./cmd/painter/painter_binary ./cmd/painter
 
     - name: Test
       run: go test -v ./...
