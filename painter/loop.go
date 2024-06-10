@@ -2,6 +2,7 @@ package painter
 
 import (
 	"image"
+	"log"
 	"sync"
 
 	"golang.org/x/exp/shiny/screen"
@@ -40,8 +41,13 @@ func (el *EventLoop) Initiate(screenProvider screen.Screen) {
 			ready := op.Apply(el.currentTexture)
 
 			if ready {
+
+				log.Println("Texture updated, calling UpdateTexture")
+
 				el.Receiver.UpdateTexture(el.currentTexture)
 				el.currentTexture, el.lastTexture = el.lastTexture, el.currentTexture
+
+				log.Println("Texture swap complete")
 			}
 		}
 		close(el.stopCh)

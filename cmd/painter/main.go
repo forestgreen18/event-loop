@@ -10,24 +10,28 @@ import (
 
 func main() {
 	var (
-		pv ui.Visualizer // Візуалізатор створює вікно та малює у ньому.
+		pv ui.Visualizer // The visualizer creates a window and draws in it.
 
-		// Потрібні для частини 2.
-		opLoop painter.Loop // Цикл обробки команд.
-		parser lang.Parser  // Парсер команд.
+		// Needed for part 2.
+		eventLoop painter.EventLoop // Event loop for processing operations.
+		processor lang.CommandProcessor // Command processor.
+		artboard  lang.ArtboardState // Artboard state.
 	)
 
 	//pv.Debug = true
 	pv.Title = "Simple painter"
 
-	pv.OnScreenReady = opLoop.Start
-	opLoop.Receiver = &pv
+	pv.OnScreenReady = eventLoop.Initiate
+	eventLoop.Receiver = &pv
+
+	// Initialize the command processor with the artboard state.
+	processor = *lang.NewCommandProcessor(&artboard)
 
 	go func() {
-		http.Handle("/", lang.HttpHandler(&opLoop, &parser))
+		http.Handle("/", lang.CommandHttpHandler(&eventLoop, &processor))
 		_ = http.ListenAndServe("localhost:17000", nil)
 	}()
 
 	pv.Main()
-	opLoop.StopAndWait()
+	eventLoop.Terminate()
 }
