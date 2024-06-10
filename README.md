@@ -71,13 +71,13 @@ bgrect 0.05 0.05 0.95 0.95
 update
 ```
 
-Visual Result:
+Visual Result:\
 ![verdant_frame](assets/verdant_frame.png)
 
 2. **Figure's Journey**
    Click on "Diagonal movement script" button at web intercace.
 
-Visual Result:
+Visual Result:\
 ![figures_journey](assets/figures_journey.gif)
 
 ## Crafting Custom Scripts
@@ -93,5 +93,5 @@ figure 0.6 0.6
 update
 ```
 
-Visual Result:
+Visual Result:\
 ![custom_canvas](assets/custom_canvas.png)
