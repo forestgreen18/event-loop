@@ -257,3 +257,24 @@ func TestEventLoop_StopChClosed(t *testing.T) {
     t.Fatal("stopCh should be closed after Terminate is called")
   }
 }
+
+
+func TestEventLoop_RequestStopSet(t *testing.T) {
+  s := &mockScreen{}
+  el := &EventLoop{
+    Receiver: &testTextureReceiver{},
+  }
+  el.Initiate(s)
+  defer el.Terminate()
+
+  if el.requestStop {
+    t.Fatal("requestStop should be false before Terminate is called")
+  }
+
+  el.Terminate()
+
+  if !el.requestStop {
+    t.Fatal("requestStop should be true after Terminate is called")
+  }
+}
+
