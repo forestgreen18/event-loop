@@ -1,3 +1,4 @@
+const gfButton = document.querySelector(".gf-script");
 // Base URL for HTTP requests
 const baseURL = "http://127.0.0.1:17000/";
 
@@ -30,6 +31,17 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const params = textarea.value.trim().split("\n");
   const url = buildURL(params);
+  try {
+    const response = await sendHTTPRequest(url);
+    console.log(response);
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+// Event listener for 'Green Fill' button
+gfButton.addEventListener("click", async () => {
+  const url = buildURL(["green", "bgrect 0.05 0.05 0.95 0.95", "update"]);
   try {
     const response = await sendHTTPRequest(url);
     console.log(response);

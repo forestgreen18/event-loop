@@ -139,7 +139,7 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 }
 func (pw *Visualizer) drawDefaultUI() {
 
-	pw.w.Fill(pw.sz.Bounds(), color.RGBA{0, 255, 0, 255}, draw.Src)
+	pw.w.Fill(pw.sz.Bounds(), color.RGBA{G: 255, A: 255}, draw.Src)
 
 
 
@@ -156,9 +156,9 @@ func (pw *Visualizer) drawShape(w screen.Window, pos image.Rectangle) {
 	w.Fill(image.Rect(
 		pos.Min.X, pos.Min.Y+80,
 		pos.Max.X, pos.Min.Y+120,
-	), color.White, draw.Src)
+	),  color.RGBA{B: 255, A: 255}, draw.Src)
 	w.Fill(image.Rect(
 		pos.Min.X+80, pos.Min.Y,
 		pos.Min.X+120, pos.Max.Y,
-	), color.White, draw.Src)
+	), color.RGBA{B: 255, A: 255}, draw.Src)
 }

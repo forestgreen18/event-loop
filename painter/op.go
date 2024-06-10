@@ -61,8 +61,19 @@ type Shape struct {
 // DrawShape creates a TextureFunc that draws the shape at its center position.
 func (s *Shape) DrawShape() TextureFunc {
 	return func(t screen.Texture) {
-		t.Fill(image.Rect(s.CenterX-150, s.CenterY-100, s.CenterX+150, s.CenterY), color.RGBA{255, 255, 0, 1}, screen.Src)
-		t.Fill(image.Rect(s.CenterX-50, s.CenterY, s.CenterX+50, s.CenterY+100), color.RGBA{255, 255, 0, 1}, screen.Src)
+		// Define the size of the cross arms
+		armWidth := 20
+		armLength := 100
+
+		// Calculate the rectangle coordinates for the vertical part of the cross
+		verticalRect := image.Rect(s.CenterX-armWidth, s.CenterY-armLength, s.CenterX+armWidth, s.CenterY+armLength)
+		// Calculate the rectangle coordinates for the horizontal part of the cross
+		horizontalRect := image.Rect(s.CenterX-armLength, s.CenterY-armWidth, s.CenterX+armLength, s.CenterY+armWidth)
+
+		// Draw the vertical part of the cross
+		t.Fill(verticalRect, color.RGBA{B: 255, A: 255}, screen.Src)
+		// Draw the horizontal part of the cross
+		t.Fill(horizontalRect, color.RGBA{B: 255, A: 255}, screen.Src)
 	}
 }
 
