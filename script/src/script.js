@@ -1,4 +1,6 @@
 const gfButton = document.querySelector(".gf-script");
+const dmButton = document.querySelector(".dm-script");
+
 // Base URL for HTTP requests
 const baseURL = "http://127.0.0.1:17000/";
 
@@ -47,5 +49,23 @@ gfButton.addEventListener("click", async () => {
     console.log(response);
   } catch (error) {
     console.error(error);
+  }
+});
+
+// Event listener for 'Draw and Move' button
+dmButton.addEventListener("click", () => {
+  const urlToDraw = buildURL(["white", "figure 0.1 0.1", "update"]);
+  sendHTTPRequest(urlToDraw)
+    .then((response) => console.log(response))
+    .catch((error) => console.error(error));
+
+  for (let i = 0; i < 9; i++) {
+    setTimeout(() => {
+      console.log(`Request: ${i + 1}`);
+      const urlToMove = buildURL(["move 0.1 0.1", "update"]);
+      sendHTTPRequest(urlToMove)
+        .then((response) => console.log(response))
+        .catch((error) => console.error(error));
+    }, (i + 1) * 1000);
   }
 });
